@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>就是你！快来背单词！</title>
+
+<style>
+body {
+  margin: 0;
+  font-family: "Georgia", serif;
+  background-color: #fff7f0;
+  color: #5a4636;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+}
+
+/* 页面 */
+.page {
+  display: none;
+  width: 100%;
+  max-width: 520px;
+  padding: 40px;
+  text-align: center;
+}
+.page.active {
+  display: block;
+}
+
+/* 标题 */
+.title, #notebookTitle {
+  font-family: "Comic Sans MS", cursive;
+}
+
+/* 起始页 */
+.title {
+  font-size: 36px;
+  margin-bottom: 40px;
+}
+
+.name-input {
+  border: none;
+  border-bottom: 2px solid #e6cfc2;
+  background: transparent;
+  font-size: 20px;
+  padding: 8px;
+  outline: none;
+  text-align: center;
+}
+
+/* 主页面 */
+#notebookTitle {
+  font-size: 30px;
+  margin-bottom: 20px;
+}
+
+.today {
+  font-size: 16px;
+  color: #a4876f;
+  margin-bottom: 10px;
+}
+
+.search-input {
+  width: 100%;
+  border: none;
+  border-bottom: 2px solid #e6cfc2;
+  background: transparent;
+  padding: 8px;
+  font-size: 18px;
+  outline: none;
+  text-align: center;
+}
+
+.menu {
+  margin-top: 70px;
+}
+
+.menu-item {
+  margin: 25px 0;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+/* 横线（柔和） */
+.line {
+  border-bottom: 2px solid #f1e3d8;
+  margin-top: 8px;
+}
+
+/* 输入浮层 */
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(255, 247, 240, 0.9);
+  display: none;
+  justify-content: center;
+  align-items: center;
+}
+
+.popup {
+  background: #fffaf5;
+  padding: 30px;
+  border-radius: 12px;
+  width: 300px;
+}
+
+.popup input {
+  width: 100%;
+  border: none;
+  border-bottom: 2px solid #e6cfc2;
+  margin: 10px 0;
+  padding: 6px;
+  font-size: 16px;
+  outline: none;
+}
+
+.popup button {
+  margin-top: 15px;
+  padding: 6px 12px;
+  border: none;
+  background: #e8d5c4;
+  cursor: pointer;
+}
+
+/* 列表页 */
+.list-item {
+  text-align: left;
+  margin: 15px 0;
+  font-size: 18px;
+}
+
+.word {
+  color: #4a3a2a;
+}
+
+.meaning {
+  color: #8c7f70;
+  margin-left: 10px;
+}
+
+.back {
+  margin-bottom: 20px;
+  cursor: pointer;
+}
+</style>
+</head>
+
+<body>
+
+<!-- 起始页 -->
+<div id="startPage" class="page active">
+  <div class="title">my notebook</div>
+  <input id="nameInput" class="name-input" placeholder="给这本本子起个名字…">
+  <div style="margin-top:20px; cursor:pointer;" onclick="saveName()">进入</div>
+</div>
+
+<!-- 主页面 -->
+<div id="mainPage" class="page">
+  <div id="notebookTitle"></div>
+
+  <div class="today" id="todayCount"></div>
+  <input id="searchInput" class="search-input" placeholder="查一个词…" onkeydown="if(event.key==='Enter') searchWord()">
+
+  <div id="result" style="margin-top:20px;"></div>
+
+  <div class="menu">
+    <div class="menu-item" onclick="openPopup()">添加新词<div class="line"></div></div>
+    <div class="menu-item" onclick="showListPage()">词库列表<div class="line"></div></div>
+  </div>
+</div>
+
+<!-- 列表页 -->
+<div id="listPage" class="page">
+  <div class="back" onclick="backToMain()">← 返回</div>
+  <div id="listContainer"></div>
+</div>
+
+<!-- 输入浮层 -->
+<div id="overlay" class="overlay">
+  <div class="popup">
+    <input id="wordInput" placeholder="单词">
+    <input id="meaningInput" placeholder="中文意思">
+    <button onclick="saveWord()">写好了</button>
+  </div>
+</div>
+
+<script>
+
+function getToday() {
+  const d = new Date();
+  return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
+}
+
+let words = JSON.parse(localStorage.getItem("words")) || {};
+let notebookName = localStorage.getItem("notebookName") || "";
+
+// 页面切换
+function show(page) {
+  document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+  document.getElementById(page).classList.add("active");
+}
+
+// 初始化
+window.onload = function () {
+  if (notebookName) {
+    show("mainPage");
+    document.getElementById("notebookTitle").innerText = notebookName;
+  } else {
+    show("startPage");
+  }
+  updateToday();
+};
+
+// 保存名字
+function saveName() {
+  let name = document.getElementById("nameInput").value.trim();
+  if (!name) return;
+  notebookName = name;
+  localStorage.setItem("notebookName", name);
+  document.getElementById("notebookTitle").innerText = name;
+  show("mainPage");
+}
+
+// 添加词（打开浮层）
+function openPopup() {
+  document.getElementById("overlay").style.display = "flex";
+}
+
+// 保存词
+function saveWord() {
+  let word = document.getElementById("wordInput").value.toLowerCase();
+  let meaning = document.getElementById("meaningInput").value;
+
+  if (!word || !meaning) return;
+
+  if (words[word]) {
+    alert("这个词你已经记过啦～去单词列表里复习一下吧！");
+    return;
+  }
+
+  words[word] = {
+    meaning: meaning,
+    date: getToday()
+  };
+
+  localStorage.setItem("words", JSON.stringify(words));
+  document.getElementById("overlay").style.display = "none";
+
+  document.getElementById("wordInput").value = "";
+  document.getElementById("meaningInput").value = "";
+
+  updateToday();
+}
+
+// 查找
+function searchWord() {
+  let input = document.getElementById("searchInput").value.toLowerCase();
+  if (!input) return;
+
+  if (words[input]) {
+    document.getElementById("result").innerText =
+      input + "： " + words[input].meaning;
+  } else {
+    document.getElementById("result").innerText = "这个词还没有记过呢…";
+  }
+}
+
+// 今日统计
+function updateToday() {
+  let today = getToday();
+  let count = 0;
+
+  for (let w in words) {
+    if (words[w].date === today) {
+      count++;
+    }
+  }
+
+  document.getElementById("todayCount").innerText =
+    "今天你遇见了 " + count + " 个新词";
+}
+
+// 列表页
+function showListPage() {
+  let container = document.getElementById("listContainer");
+  container.innerHTML = "";
+
+  for (let w in words) {
+    let div = document.createElement("div");
+    div.className = "list-item";
+
+    div.innerHTML = `
+      <span class="word">${w}</span>
+      <span class="meaning">${words[w].meaning}</span>
+      <div class="line"></div>
+    `;
+
+    container.appendChild(div);
+  }
+
+  show("listPage");
+}
+
+function backToMain() {
+  show("mainPage");
+}
+</script>
+
+</body>
+</html>
